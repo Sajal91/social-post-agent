@@ -17,24 +17,24 @@ export async function generateImage(imagePrompt: string): Promise<{
 }> {
   await mkdir(UPLOADS_DIR, { recursive: true })
 
-  const response = await ai.models.generateContent({
-    model: IMAGE_MODEL,
-    contents: imagePrompt,
-    config: {
-      responseModalities: [Modality.IMAGE],
-    },
-  })
+  // const response = await ai.models.generateContent({
+  //   model: IMAGE_MODEL,
+  //   contents: imagePrompt,
+  //   config: {
+  //     responseModalities: [Modality.IMAGE],
+  //   },
+  // })
 
-  const parts = response.candidates?.[0]?.content?.parts ?? []
-  const imagePart = parts.find((p) => p.inlineData?.data)
+  // const parts = response.candidates?.[0]?.content?.parts ?? []
+  // const imagePart = parts.find((p) => p.inlineData?.data)
 
-  if (!imagePart?.inlineData?.data) {
-    throw new Error('Gemini did not return an image')
-  }
+  // if (!imagePart?.inlineData?.data) {
+  //   throw new Error('Gemini did not return an image')
+  // }
 
-  const fileName = `${randomUUID()}.png`
+  const fileName = `business-automation.jpeg`
   const filePath = join(UPLOADS_DIR, fileName)
-  await writeFile(filePath, Buffer.from(imagePart.inlineData.data, 'base64'))
+  // await writeFile(filePath, Buffer.from(imagePart.inlineData.data, 'base64'))
 
   return { filePath, fileName }
 }
