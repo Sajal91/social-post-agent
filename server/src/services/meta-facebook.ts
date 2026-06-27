@@ -1,6 +1,6 @@
 import { env } from '../config/env.js'
 
-const GRAPH_API = 'https://graph.facebook.com/v21.0'
+const GRAPH_API = 'https://graph.facebook.com/v25.0'
 
 async function graphPost(
   path: string,
@@ -9,6 +9,11 @@ async function graphPost(
   const params = new URLSearchParams(body)
   const res = await fetch(`${GRAPH_API}${path}?${params}`, { method: 'POST' })
   return res.json() as Promise<{ id?: string; error?: { message: string } }>
+}
+
+export async function graphFacebookPage() {
+  const res = await fetch(`${GRAPH_API}/me/accounts?access_token=${env.FACEBOOK_PAGE_ACCESS_TOKEN}`, { method: 'GET' })
+  return res.json() as Promise<{ data: [{ access_token?: string, id?: string }], error: { message: string } }>
 }
 
 export async function postToFacebook(
@@ -23,8 +28,15 @@ export async function postToFacebook(
     return { success: false, error: 'Facebook credentials not configured' }
   }
 
-  const token = env.FACEBOOK_PAGE_ACCESS_TOKEN
-  const pageId = env.FACEBOOK_PAGE_ID
+  let token = ""
+  let pageId = ""
+
+  const pageResult = await graphFacebookPage();
+
+  if (pageResult.error) return { success: false, postId: pageResult.error.message }
+
+  token = pageResult.data[0].access_token as string
+  pageId = pageResult.data[0].id as string
 
   if (imageUrl) {
     const result = await graphPost(`/${pageId}/photos`, {
@@ -40,6 +52,7 @@ export async function postToFacebook(
     message: caption,
     access_token: token,
   })
+
   if (result.error) return { success: false, error: result.error.message }
   return { success: true, postId: result.id }
 }
