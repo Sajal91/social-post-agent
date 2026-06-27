@@ -20,10 +20,10 @@ Generate exactly 5 engaging content topic ideas for Facebook, Instagram, and Lin
 
 Return ONLY valid JSON array with this shape:
 [
-  {"id": "topic_1", "title": "Short title", "description": "One sentence description"}
+  {"id": "topic_1", "title": "Clear, descriptive title", "description": "One or two sentence description"}
 ]
 
-Make topics diverse, actionable, and suitable for visual social posts.`,
+Use full descriptive titles (not abbreviated). Make topics diverse, actionable, and suitable for visual social posts.`,
   })
 
   const text = response.text ?? '[]'

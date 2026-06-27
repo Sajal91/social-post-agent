@@ -48,6 +48,17 @@ export function isTriggerMessage(text: string): boolean {
   )
 }
 
+/** Returns 1-based topic index, or null if the reply is not a valid selection. */
+export function parseTopicSelection(text: string, topicCount: number): number | null {
+  const normalized = text.trim()
+  const match = normalized.match(/^(\d+)$/)
+  if (!match) return null
+
+  const index = Number.parseInt(match[1], 10)
+  if (index < 1 || index > topicCount) return null
+  return index
+}
+
 export function parsePlatformSelection(text: string): Platform[] {
   const normalized = text.toLowerCase().trim()
   if (normalized === 'all' || normalized === '1,2,3' || normalized === '123') {

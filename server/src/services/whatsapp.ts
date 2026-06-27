@@ -37,38 +37,27 @@ export async function sendText(to: string, body: string): Promise<void> {
   })
 }
 
-export async function sendTopicList(
+/** Numbered text list — avoids WhatsApp list row limits (24-char title / 72-char description). */
+export async function sendTopicChoices(
   to: string,
   topics: TopicOption[],
 ): Promise<void> {
-  await sendPayload({
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
-    type: 'interactive',
-    interactive: {
-      type: 'list',
-      header: { type: 'text', text: 'Pick a topic' },
-      body: { text: 'Choose one topic for your social media content:' },
-      footer: { text: 'SocialPostAgent' },
-      action: {
-        button: 'View topics',
-        sections: [
-          {
-            title: 'Content topics',
-            rows: topics.map((t) => ({
-              id: t.id,
-              title: t.title,
-              description: t.description,
-            })),
-          },
-        ],
-      },
-    },
-  })
+  const lines = topics.map(
+    (t, i) => `*${i + 1}.* ${t.title}\n   _${t.description}_`,
+  )
+
+  const body = [
+    '*Pick a topic* — reply with the number (1–5):',
+    '',
+    ...lines,
+    '',
+    '_Example: reply *2* to choose topic 2._',
+  ].join('\n')
+
+  await sendText(to, body)
 }
 
-export async function sendApprovalButtons(to: string, body: string): Promise<void> {
+export async function sendApprovalButtons(to: string): Promise<void> {
   await sendPayload({
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -76,7 +65,9 @@ export async function sendApprovalButtons(to: string, body: string): Promise<voi
     type: 'interactive',
     interactive: {
       type: 'button',
-      body: { text: body },
+      body: {
+        text: 'Review the PDF above, then choose an action:',
+      },
       action: {
         buttons: [
           {
@@ -107,14 +98,18 @@ export async function sendImage(to: string, imageUrl: string, caption?: string):
   })
 }
 
-export async function uploadMedia(filePath: string, mimeType: string): Promise<string> {
+export async function uploadMedia(
+  filePath: string,
+  mimeType: string,
+  fileName = 'file',
+): Promise<string> {
   const { readFile } = await import('node:fs/promises')
   const data = await readFile(filePath)
 
   const formData = new FormData()
   formData.append('messaging_product', 'whatsapp')
   formData.append('type', mimeType)
-  formData.append('file', new Blob([data], { type: mimeType }), 'image.png')
+  formData.append('file', new Blob([data], { type: mimeType }), fileName)
 
   const res = await fetch(`${GRAPH_API}/${env.WHATSAPP_PHONE_NUMBER_ID}/media`, {
     method: 'POST',
@@ -140,5 +135,35 @@ export async function sendImageByMediaId(
     to,
     type: 'image',
     image: { id: mediaId, caption: caption },
+  })
+}
+
+export async function sendDocument(
+  to: string,
+  documentUrl: string,
+  fileName: string,
+  caption?: string,
+): Promise<void> {
+  await sendPayload({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'document',
+    document: { link: documentUrl, filename: fileName, caption },
+  })
+}
+
+export async function sendDocumentByMediaId(
+  to: string,
+  mediaId: string,
+  fileName: string,
+  caption?: string,
+): Promise<void> {
+  await sendPayload({
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'document',
+    document: { id: mediaId, filename: fileName, caption },
   })
 }

@@ -9,20 +9,25 @@ import {
   generateTopics,
   reviseDraft,
 } from '../services/gemini-content.js'
+import { generateDraftPdf, getDraftPdfPublicUrl } from '../services/draft-pdf.js'
 import { generateImage, getImagePublicUrl } from '../services/gemini-image.js'
 import { publishToPlatforms } from '../services/posting.js'
 import {
   sendApprovalButtons,
+  sendDocument,
+  sendDocumentByMediaId,
   sendImage,
   sendImageByMediaId,
   sendText,
-  sendTopicList,
+  sendTopicChoices,
   uploadMedia,
 } from '../services/whatsapp.js'
 import {
   isTriggerMessage,
   parsePlatformSelection,
+  parseTopicSelection,
   WorkflowState,
+  type PlatformDraft,
   type TopicOption,
 } from './states.js'
 
@@ -109,7 +114,7 @@ async function processActiveRun(
         await handleSeedPrompt(run, msg.text ?? '')
         break
       case WorkflowState.AWAITING_TOPIC_SELECTION:
-        await handleTopicSelection(run, msg.listReplyId)
+        await handleTopicSelection(run, msg.text, msg.listReplyId)
         break
       case WorkflowState.AWAITING_CONTENT_APPROVAL:
         await handleContentApproval(run, waId, msg.buttonId)
@@ -152,21 +157,79 @@ async function handleSeedPrompt(run: IWorkflowRun, text: string): Promise<void> 
   run.state = WorkflowState.AWAITING_TOPIC_SELECTION
   await run.save()
 
-  await sendTopicList(run.waId, topics)
+  await sendTopicChoices(run.waId, topics)
+}
+
+function resolveSelectedTopic(
+  run: IWorkflowRun,
+  text?: string,
+  listReplyId?: string,
+): TopicOption | null {
+  if (text) {
+    const index = parseTopicSelection(text, run.topics.length)
+    if (index !== null) {
+      return run.topics[index - 1] ?? null
+    }
+  }
+
+  if (listReplyId) {
+    return run.topics.find((t) => t.id === listReplyId) ?? null
+  }
+
+  return null
+}
+
+async function sendDraftPreview(
+  waId: string,
+  draft: PlatformDraft,
+  meta: { topicTitle?: string; seedPrompt?: string },
+  image?: { filePath: string; caption: string; publicUrl?: string },
+): Promise<void> {
+  const { filePath: pdfPath, fileName: pdfFileName } = await generateDraftPdf(draft, meta)
+  const pdfUrl = getDraftPdfPublicUrl(pdfFileName)
+
+  if (pdfUrl) {
+    await sendDocument(waId, pdfUrl, 'content-preview.pdf', 'Your content preview (PDF)')
+  } else {
+    try {
+      const mediaId = await uploadMedia(pdfPath, 'application/pdf', 'content-preview.pdf')
+      await sendDocumentByMediaId(waId, mediaId, 'content-preview.pdf', 'Your content preview (PDF)')
+    } catch {
+      await sendText(
+        waId,
+        'Could not send PDF preview — set PUBLIC_BASE_URL so WhatsApp can fetch the document.',
+      )
+      await sendText(waId, formatDraftPreview(draft))
+    }
+  }
+
+  if (image) {
+    if (image.publicUrl) {
+      await sendImage(waId, image.publicUrl, image.caption)
+    } else {
+      try {
+        const mediaId = await uploadMedia(image.filePath, 'image/png', 'preview.png')
+        await sendImageByMediaId(waId, mediaId, image.caption)
+      } catch {
+        await sendText(waId, '(Image generated but could not be sent — set PUBLIC_BASE_URL for image links)')
+      }
+    }
+  }
+
+  await sendApprovalButtons(waId)
 }
 
 async function handleTopicSelection(
   run: IWorkflowRun,
+  text?: string,
   listReplyId?: string,
 ): Promise<void> {
-  if (!listReplyId) {
-    await sendText(run.waId, 'Please pick a topic from the list above.')
-    return
-  }
-
-  const topic = run.topics.find((t) => t.id === listReplyId)
+  const topic = resolveSelectedTopic(run, text, listReplyId)
   if (!topic) {
-    await sendText(run.waId, 'Invalid selection. Please pick a topic from the list.')
+    await sendText(
+      run.waId,
+      'Please reply with a number from the list above (e.g. *1*, *2*, *3*).',
+    )
     return
   }
 
@@ -186,20 +249,12 @@ async function handleTopicSelection(
   run.state = WorkflowState.AWAITING_CONTENT_APPROVAL
   await run.save()
 
-  const preview = formatDraftPreview(draft)
-
-  if (run.imageUrl) {
-    await sendImage(run.waId, run.imageUrl, 'Generated image preview')
-  } else {
-    try {
-      const mediaId = await uploadMedia(filePath, 'image/png')
-      await sendImageByMediaId(run.waId, mediaId, 'Generated image preview')
-    } catch {
-      await sendText(run.waId, '(Image generated but could not be sent — set PUBLIC_BASE_URL for image links)')
-    }
-  }
-
-  await sendApprovalButtons(run.waId, preview)
+  await sendDraftPreview(
+    run.waId,
+    draft,
+    { topicTitle: topic.title, seedPrompt: run.seedPrompt },
+    { filePath, caption: 'Generated image preview', publicUrl: run.imageUrl },
+  )
 }
 
 async function handleContentApproval(
@@ -239,18 +294,12 @@ async function handleContentApproval(
     run.state = WorkflowState.AWAITING_CONTENT_APPROVAL
     await run.save()
 
-    const preview = formatDraftPreview(draft)
-    if (run.imageUrl) {
-      await sendImage(run.waId, run.imageUrl, 'Regenerated image')
-    } else {
-      try {
-        const mediaId = await uploadMedia(filePath, 'image/png')
-        await sendImageByMediaId(run.waId, mediaId, 'Regenerated image')
-      } catch {
-        /* image optional in preview */
-      }
-    }
-    await sendApprovalButtons(waId, preview)
+    await sendDraftPreview(
+      waId,
+      draft,
+      { topicTitle: run.selectedTopic.title, seedPrompt: run.seedPrompt },
+      { filePath, caption: 'Regenerated image', publicUrl: run.imageUrl },
+    )
     return
   }
 
@@ -273,8 +322,10 @@ async function handleEditInstruction(
   run.state = WorkflowState.AWAITING_CONTENT_APPROVAL
   await run.save()
 
-  const preview = formatDraftPreview(run.draft)
-  await sendApprovalButtons(waId, preview)
+  await sendDraftPreview(waId, run.draft, {
+    topicTitle: run.selectedTopic?.title,
+    seedPrompt: run.seedPrompt,
+  })
 }
 
 async function handlePlatformSelection(
