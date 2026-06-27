@@ -14,7 +14,7 @@ dist-ssr
 .env
 
 # Server uploads
-server/uploads/
+# server/uploads/
 
 # Editor directories and files
 .vscode/*
