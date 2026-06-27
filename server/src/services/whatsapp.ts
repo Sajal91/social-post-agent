@@ -58,8 +58,8 @@ export async function sendTopicList(
             title: 'Content topics',
             rows: topics.map((t) => ({
               id: t.id,
-              title: t.title.slice(0, 24),
-              description: t.description.slice(0, 72),
+              title: t.title,
+              description: t.description,
             })),
           },
         ],
@@ -76,7 +76,7 @@ export async function sendApprovalButtons(to: string, body: string): Promise<voi
     type: 'interactive',
     interactive: {
       type: 'button',
-      body: { text: body.slice(0, 1024) },
+      body: { text: body },
       action: {
         buttons: [
           {
@@ -103,7 +103,7 @@ export async function sendImage(to: string, imageUrl: string, caption?: string):
     recipient_type: 'individual',
     to,
     type: 'image',
-    image: { link: imageUrl, caption: caption?.slice(0, 1024) },
+    image: { link: imageUrl, caption: caption },
   })
 }
 
@@ -139,6 +139,6 @@ export async function sendImageByMediaId(
     recipient_type: 'individual',
     to,
     type: 'image',
-    image: { id: mediaId, caption: caption?.slice(0, 1024) },
+    image: { id: mediaId, caption: caption },
   })
 }
