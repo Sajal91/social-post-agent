@@ -10,7 +10,7 @@ import {
   reviseDraft,
 } from '../services/gemini-content.js'
 import { generateDraftPdf, getDraftPdfPublicUrl } from '../services/draft-pdf.js'
-import { generateImage, getImagePublicUrl } from '../services/gemini-image.js'
+import { generateImage, getImagePublicUrl, mimeFromPath, ensureImageReadable } from '../services/gemini-image.js'
 import { publishToPlatforms } from '../services/posting.js'
 import {
   sendApprovalButtons,
@@ -229,16 +229,28 @@ async function sendDraftPreviewMessage(
   }
 
   if (image) {
-    if (image.publicUrl) {
-      await sendImage(waId, image.publicUrl, tenant, image.caption)
-    } else {
-      try {
-        const mediaId = await uploadMedia(image.filePath, 'image/png', tenant, 'preview.png')
-        await sendImageByMediaId(waId, mediaId, tenant, image.caption)
-      } catch {
+    try {
+      await ensureImageReadable(image.filePath)
+      const mime = mimeFromPath(image.filePath)
+      const mediaId = await uploadMedia(image.filePath, mime, tenant, 'preview.jpeg')
+      await sendImageByMediaId(waId, mediaId, tenant, image.caption)
+    } catch (uploadErr) {
+      console.error('[Workflow] WhatsApp image upload failed:', uploadErr)
+      if (image.publicUrl) {
+        try {
+          await sendImage(waId, image.publicUrl, tenant, image.caption)
+        } catch (linkErr) {
+          console.error('[Workflow] WhatsApp image link send failed:', linkErr)
+          await sendText(
+            waId,
+            '(Image was generated but could not be sent to WhatsApp. Check server logs and PUBLIC_BASE_URL.)',
+            tenant,
+          )
+        }
+      } else {
         await sendText(
           waId,
-          '(Image generated but could not be sent — set PUBLIC_BASE_URL for image links)',
+          '(Image was generated but could not be sent to WhatsApp. Check server logs.)',
           tenant,
         )
       }
