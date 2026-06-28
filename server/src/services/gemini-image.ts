@@ -26,5 +26,6 @@ export async function generateImage(
 
 export function getImagePublicUrl(fileName: string, tenant: TenantContext): string | undefined {
   if (!tenant.publicBaseUrl) return undefined
-  return `${tenant.publicBaseUrl}/uploads/${fileName}`
+  const url = `${tenant.publicBaseUrl}/uploads/${fileName}`
+  return url;
 }
