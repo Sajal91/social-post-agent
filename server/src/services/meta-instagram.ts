@@ -1,4 +1,4 @@
-import { env } from '../config/env.js'
+import type { TenantContext } from '../types/tenant.js'
 
 const GRAPH_API = 'https://graph.facebook.com/v21.0'
 
@@ -14,13 +14,14 @@ async function graphPost(
 export async function postToInstagram(
   caption: string,
   imageUrl: string,
+  tenant: TenantContext,
 ): Promise<{ success: boolean; postId?: string; error?: string }> {
-  if (env.POSTING_DRY_RUN) {
+  if (tenant.postingDryRun) {
     return { success: true, postId: 'dry_run_instagram' }
   }
 
-  const igUserId = env.INSTAGRAM_BUSINESS_ACCOUNT_ID
-  const token = env.FACEBOOK_PAGE_ACCESS_TOKEN
+  const igUserId = tenant.instagramBusinessAccountId
+  const token = tenant.facebookPageAccessToken
 
   if (!igUserId || !token) {
     return { success: false, error: 'Instagram credentials not configured' }

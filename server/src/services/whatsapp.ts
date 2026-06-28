@@ -1,13 +1,15 @@
-import { env } from '../config/env.js'
-import type { TopicOption } from '../workflow/states.js'
+import type { TenantContext } from '../types/tenant.js'
 
 const GRAPH_API = 'https://graph.facebook.com/v21.0'
 
-async function sendPayload(payload: Record<string, unknown>): Promise<void> {
-  const res = await fetch(`${GRAPH_API}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+async function sendPayload(
+  tenant: TenantContext,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const res = await fetch(`${GRAPH_API}/${tenant.whatsappPhoneNumberId}/messages`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${tenant.whatsappAccessToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
@@ -27,8 +29,12 @@ async function sendPayload(payload: Record<string, unknown>): Promise<void> {
   }
 }
 
-export async function sendText(to: string, body: string): Promise<void> {
-  await sendPayload({
+export async function sendText(
+  to: string,
+  body: string,
+  tenant: TenantContext,
+): Promise<void> {
+  await sendPayload(tenant, {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -40,7 +46,8 @@ export async function sendText(to: string, body: string): Promise<void> {
 /** Numbered text list — avoids WhatsApp list row limits (24-char title / 72-char description). */
 export async function sendTopicChoices(
   to: string,
-  topics: TopicOption[],
+  topics: { title: string; description: string }[],
+  tenant: TenantContext,
 ): Promise<void> {
   const lines = topics.map(
     (t, i) => `*${i + 1}.* ${t.title}\n   _${t.description}_`,
@@ -54,11 +61,11 @@ export async function sendTopicChoices(
     '_Example: reply *2* to choose topic 2._',
   ].join('\n')
 
-  await sendText(to, body)
+  await sendText(to, body, tenant)
 }
 
-export async function sendApprovalButtons(to: string): Promise<void> {
-  await sendPayload({
+export async function sendApprovalButtons(to: string, tenant: TenantContext): Promise<void> {
+  await sendPayload(tenant, {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -88,8 +95,13 @@ export async function sendApprovalButtons(to: string): Promise<void> {
   })
 }
 
-export async function sendImage(to: string, imageUrl: string, caption?: string): Promise<void> {
-  await sendPayload({
+export async function sendImage(
+  to: string,
+  imageUrl: string,
+  tenant: TenantContext,
+  caption?: string,
+): Promise<void> {
+  await sendPayload(tenant, {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -101,6 +113,7 @@ export async function sendImage(to: string, imageUrl: string, caption?: string):
 export async function uploadMedia(
   filePath: string,
   mimeType: string,
+  tenant: TenantContext,
   fileName = 'file',
 ): Promise<string> {
   const { readFile } = await import('node:fs/promises')
@@ -111,9 +124,9 @@ export async function uploadMedia(
   formData.append('type', mimeType)
   formData.append('file', new Blob([data], { type: mimeType }), fileName)
 
-  const res = await fetch(`${GRAPH_API}/${env.WHATSAPP_PHONE_NUMBER_ID}/media`, {
+  const res = await fetch(`${GRAPH_API}/${tenant.whatsappPhoneNumberId}/media`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${env.WHATSAPP_ACCESS_TOKEN}` },
+    headers: { Authorization: `Bearer ${tenant.whatsappAccessToken}` },
     body: formData,
   })
 
@@ -127,9 +140,10 @@ export async function uploadMedia(
 export async function sendImageByMediaId(
   to: string,
   mediaId: string,
+  tenant: TenantContext,
   caption?: string,
 ): Promise<void> {
-  await sendPayload({
+  await sendPayload(tenant, {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -142,9 +156,10 @@ export async function sendDocument(
   to: string,
   documentUrl: string,
   fileName: string,
+  tenant: TenantContext,
   caption?: string,
 ): Promise<void> {
-  await sendPayload({
+  await sendPayload(tenant, {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,
@@ -157,9 +172,10 @@ export async function sendDocumentByMediaId(
   to: string,
   mediaId: string,
   fileName: string,
+  tenant: TenantContext,
   caption?: string,
 ): Promise<void> {
-  await sendPayload({
+  await sendPayload(tenant, {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to,

@@ -1,8 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
-import { env } from '../config/env.js'
 import type { PlatformDraft, TopicOption } from '../workflow/states.js'
-
-const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY })
+import type { TenantContext } from '../types/tenant.js'
 
 const TEXT_MODEL = 'gemini-2.5-flash'
 
@@ -11,7 +9,15 @@ function parseJson<T>(text: string): T {
   return JSON.parse(cleaned) as T
 }
 
-export async function generateTopics(seedPrompt: string): Promise<TopicOption[]> {
+function getAi(tenant: TenantContext) {
+  return new GoogleGenAI({ apiKey: tenant.geminiApiKey })
+}
+
+export async function generateTopics(
+  seedPrompt: string,
+  tenant: TenantContext,
+): Promise<TopicOption[]> {
+  const ai = getAi(tenant)
   const response = await ai.models.generateContent({
     model: TEXT_MODEL,
     contents: `You are a social media strategist. Given this niche/theme: "${seedPrompt}"
@@ -38,7 +44,9 @@ Use full descriptive titles (not abbreviated). Make topics diverse, actionable, 
 export async function generateDraft(
   seedPrompt: string,
   topic: TopicOption,
+  tenant: TenantContext,
 ): Promise<PlatformDraft> {
+  const ai = getAi(tenant)
   const response = await ai.models.generateContent({
     model: TEXT_MODEL,
     contents: `You are a social media copywriter.
@@ -63,7 +71,9 @@ Return ONLY valid JSON:
 export async function reviseDraft(
   currentDraft: PlatformDraft,
   editInstruction: string,
+  tenant: TenantContext,
 ): Promise<PlatformDraft> {
+  const ai = getAi(tenant)
   const response = await ai.models.generateContent({
     model: TEXT_MODEL,
     contents: `Revise this social media content based on the user's feedback.

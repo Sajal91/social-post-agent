@@ -1,4 +1,4 @@
-import { env } from '../config/env.js'
+import type { TenantContext } from '../types/tenant.js'
 
 const GRAPH_API = 'https://graph.facebook.com/v25.0'
 
@@ -11,27 +11,34 @@ async function graphPost(
   return res.json() as Promise<{ id?: string; error?: { message: string } }>
 }
 
-export async function graphFacebookPage() {
-  const res = await fetch(`${GRAPH_API}/me/accounts?access_token=${env.FACEBOOK_PAGE_ACCESS_TOKEN}`, { method: 'GET' })
-  return res.json() as Promise<{ data: [{ access_token?: string, id?: string }], error: { message: string } }>
+async function graphFacebookPage(tenant: TenantContext) {
+  const res = await fetch(
+    `${GRAPH_API}/me/accounts?access_token=${tenant.facebookPageAccessToken}`,
+    { method: 'GET' },
+  )
+  return res.json() as Promise<{
+    data: [{ access_token?: string; id?: string }]
+    error: { message: string }
+  }>
 }
 
 export async function postToFacebook(
   caption: string,
+  tenant: TenantContext,
   imageUrl?: string,
 ): Promise<{ success: boolean; postId?: string; error?: string }> {
-  if (env.POSTING_DRY_RUN) {
+  if (tenant.postingDryRun) {
     return { success: true, postId: 'dry_run_facebook' }
   }
 
-  if (!env.FACEBOOK_PAGE_ID || !env.FACEBOOK_PAGE_ACCESS_TOKEN) {
+  if (!tenant.facebookPageId || !tenant.facebookPageAccessToken) {
     return { success: false, error: 'Facebook credentials not configured' }
   }
 
-  let token = ""
-  let pageId = ""
+  let token = ''
+  let pageId = ''
 
-  const pageResult = await graphFacebookPage();
+  const pageResult = await graphFacebookPage(tenant)
 
   if (pageResult.error) return { success: false, postId: pageResult.error.message }
 

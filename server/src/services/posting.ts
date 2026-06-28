@@ -4,10 +4,12 @@ import { postToInstagram } from './meta-instagram.js'
 import { postToLinkedIn } from './linkedin.js'
 import type { Platform, PostResult } from '../workflow/states.js'
 import { getImagePublicUrl } from './gemini-image.js'
+import type { TenantContext } from '../types/tenant.js'
 
 export async function publishToPlatforms(
   run: IWorkflowRun,
   platforms: Platform[],
+  tenant: TenantContext,
 ): Promise<PostResult[]> {
   const draft = run.draft
   if (!draft) {
@@ -20,13 +22,13 @@ export async function publishToPlatforms(
 
   const imageUrl =
     run.imageUrl ??
-    (run.imagePath ? getImagePublicUrl(run.imagePath.split(/[/\\]/).pop()!) : undefined)
+    (run.imagePath ? getImagePublicUrl(run.imagePath.split(/[/\\]/).pop()!, tenant) : undefined)
 
   const results: PostResult[] = []
 
   for (const platform of platforms) {
     if (platform === 'facebook') {
-      const result = await postToFacebook(draft.facebook, imageUrl)
+      const result = await postToFacebook(draft.facebook, tenant, imageUrl)
       results.push({ platform, ...result })
     } else if (platform === 'instagram') {
       if (!imageUrl) {
@@ -36,11 +38,11 @@ export async function publishToPlatforms(
           error: 'Instagram requires an image URL (set PUBLIC_BASE_URL)',
         })
       } else {
-        const result = await postToInstagram(draft.instagram, imageUrl)
+        const result = await postToInstagram(draft.instagram, imageUrl, tenant)
         results.push({ platform, ...result })
       }
     } else if (platform === 'linkedin') {
-      const result = await postToLinkedIn(draft.linkedin, imageUrl)
+      const result = await postToLinkedIn(draft.linkedin, tenant, imageUrl)
       results.push({ platform, ...result })
     }
   }

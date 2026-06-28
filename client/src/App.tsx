@@ -1,80 +1,57 @@
-import { useEffect, useState } from 'react'
-import { fetchHealth, fetchRuns, type WorkflowRun } from './api/client'
-import { RunCard } from './components/RunCard'
-import { RunDetail } from './pages/RunDetail'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { AppLayout } from './components/AppLayout'
+import { Login } from './pages/Login'
+import { Register } from './pages/Register'
+import { PendingApproval } from './pages/PendingApproval'
+import { UserDashboard } from './pages/UserDashboard'
+import { Settings } from './pages/Settings'
+import { AdminDashboard } from './pages/AdminDashboard'
+import { AdminUserDetail, AdminUserNew } from './pages/AdminUserDetail'
 import './App.css'
 
+function HomeRedirect() {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="center-page">Loading…</div>
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role === 'admin') return <Navigate to="/admin" replace />
+  if (user.status === 'pending') return <Navigate to="/pending" replace />
+  return <Navigate to="/dashboard" replace />
+}
+
 function App() {
-  const [runs, setRuns] = useState<WorkflowRun[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [healthOk, setHealthOk] = useState<boolean | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const [health, data] = await Promise.all([fetchHealth(), fetchRuns()])
-        setHealthOk(health.ok)
-        setRuns(data)
-        setError(null)
-      } catch {
-        setError('Cannot reach API server. Start the backend with npm run dev:server')
-        setHealthOk(false)
-      }
-    }
-
-    load()
-    const interval = setInterval(load, 8000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    if (runs.length > 0 && selectedId === null) {
-      setSelectedId(runs[0]._id)
-    }
-  }, [runs, selectedId])
-
   return (
-    <div className="app">
-      <header className="app-header">
-        <div>
-          <h1>SocialPostAgent</h1>
-          <p className="subtitle">
-            WhatsApp-driven content automation for Facebook, Instagram & LinkedIn
-          </p>
-        </div>
-        <div className={`health ${healthOk ? 'ok' : 'down'}`}>
-          {healthOk === null ? '…' : healthOk ? 'API online' : 'API offline'}
-        </div>
-      </header>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-      <div className="hint">
-        Message your WhatsApp bot: <code>Hey, Generate content</code>
-      </div>
+          <Route element={<ProtectedRoute pendingOnly />}>
+            <Route path="/pending" element={<PendingApproval />} />
+          </Route>
 
-      {error && <div className="banner error">{error}</div>}
+          <Route element={<ProtectedRoute activeOnly />}>
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={<UserDashboard />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Route>
 
-      <main className="dashboard">
-        <aside className="run-list">
-          <h2>Recent runs</h2>
-          {runs.length === 0 ? (
-            <p className="empty">No runs yet. Start one on WhatsApp.</p>
-          ) : (
-            runs.map((run) => (
-              <RunCard
-                key={run._id}
-                run={run}
-                selected={selectedId === run._id}
-                onSelect={() => setSelectedId(run._id)}
-              />
-            ))
-          )}
-        </aside>
-        <section className="detail-panel">
-          <RunDetail runId={selectedId} />
-        </section>
-      </main>
-    </div>
+          <Route element={<ProtectedRoute adminOnly />}>
+            <Route element={<AppLayout />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/users/new" element={<AdminUserNew />} />
+              <Route path="/admin/users/:id" element={<AdminUserDetail />} />
+            </Route>
+          </Route>
+
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="*" element={<HomeRedirect />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 

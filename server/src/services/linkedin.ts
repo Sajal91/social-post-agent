@@ -1,15 +1,16 @@
-import { env } from '../config/env.js'
+import type { TenantContext } from '../types/tenant.js'
 
 export async function postToLinkedIn(
   caption: string,
+  tenant: TenantContext,
   imageUrl?: string,
 ): Promise<{ success: boolean; postId?: string; error?: string }> {
-  if (env.POSTING_DRY_RUN) {
+  if (tenant.postingDryRun) {
     return { success: true, postId: 'dry_run_linkedin' }
   }
 
-  const token = env.LINKEDIN_ACCESS_TOKEN
-  const orgUrn = env.LINKEDIN_ORGANIZATION_URN
+  const token = tenant.linkedinAccessToken
+  const orgUrn = tenant.linkedinOrganizationUrn
 
   if (!token || !orgUrn) {
     return {

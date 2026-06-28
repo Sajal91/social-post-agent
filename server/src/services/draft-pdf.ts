@@ -4,8 +4,8 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import PDFDocument from 'pdfkit'
-import { env } from '../config/env.js'
 import type { PlatformDraft } from '../workflow/states.js'
+import type { TenantContext } from '../types/tenant.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const UPLOADS_DIR = join(__dirname, '../../uploads')
@@ -42,11 +42,12 @@ function addSection(
 
 export async function generateDraftPdf(
   draft: PlatformDraft,
+  tenant: TenantContext,
   meta: DraftPdfMeta = {},
 ): Promise<{ filePath: string; fileName: string }> {
-  await mkdir(UPLOADS_DIR, { recursive: true })
+  await mkdir(join(UPLOADS_DIR, tenant.userId), { recursive: true })
 
-  const fileName = `draft-${randomUUID()}.pdf`
+  const fileName = `${tenant.userId}/draft-${randomUUID()}.pdf`
   const filePath = join(UPLOADS_DIR, fileName)
   const doc = new PDFDocument({ margin: 50, size: 'A4' })
 
@@ -83,7 +84,7 @@ export async function generateDraftPdf(
   return { filePath, fileName }
 }
 
-export function getDraftPdfPublicUrl(fileName: string): string | undefined {
-  if (!env.PUBLIC_BASE_URL) return undefined
-  return `${env.PUBLIC_BASE_URL}/uploads/${fileName}`
+export function getDraftPdfPublicUrl(fileName: string, tenant: TenantContext): string | undefined {
+  if (!tenant.publicBaseUrl) return undefined
+  return `${tenant.publicBaseUrl}/uploads/${fileName}`
 }
