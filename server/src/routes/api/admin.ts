@@ -5,6 +5,7 @@ import { User } from '../../models/User.js'
 import { WorkflowRun } from '../../models/WorkflowRun.js'
 import { AllowedWhatsAppNumber } from '../../models/AllowedWhatsAppNumber.js'
 import {
+  credentialsToAdminForm,
   sanitizeCredentials,
   upsertUserCredentials,
 } from '../../services/credentials.js'
@@ -70,6 +71,7 @@ adminRouter.get('/users/:id', async (req, res) => {
       createdAt: user.createdAt,
     },
     credentials: sanitizeCredentials(creds),
+    credentialsForm: credentialsToAdminForm(creds),
     allowedNumbers: allowedNumbers.map((n) => n.phone),
     stats,
     recentRuns: runs,
@@ -171,7 +173,10 @@ adminRouter.put('/users/:id/credentials', async (req, res) => {
   const credentials = req.body as CredentialsInput
   await upsertUserCredentials(user._id.toString(), credentials)
   const creds = await UserCredentials.findOne({ userId: user._id })
-  res.json({ credentials: sanitizeCredentials(creds) })
+  res.json({
+    credentials: sanitizeCredentials(creds),
+    credentialsForm: credentialsToAdminForm(creds),
+  })
 })
 
 adminRouter.post('/users/:id/approve', async (req, res) => {

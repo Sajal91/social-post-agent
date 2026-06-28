@@ -58,36 +58,73 @@ export async function upsertUserCredentials(
   userId: string,
   input: CredentialsInput,
 ): Promise<IUserCredentials> {
-  const encrypted: Partial<IUserCredentials> = {
-    postingDryRun: input.postingDryRun ?? false,
-    publicBaseUrl: input.publicBaseUrl,
-    whatsappPhoneNumberId: input.whatsappPhoneNumberId,
-    facebookPageId: input.facebookPageId,
-    instagramBusinessAccountId: input.instagramBusinessAccountId,
-    linkedinOrganizationUrn: input.linkedinOrganizationUrn,
+  const encrypted: Partial<IUserCredentials> = {}
+
+  if (input.postingDryRun !== undefined) {
+    encrypted.postingDryRun = input.postingDryRun
+  }
+  if (input.publicBaseUrl !== undefined) {
+    encrypted.publicBaseUrl = input.publicBaseUrl
+  }
+  if (input.whatsappPhoneNumberId !== undefined) {
+    encrypted.whatsappPhoneNumberId = input.whatsappPhoneNumberId
+  }
+  if (input.facebookPageId !== undefined) {
+    encrypted.facebookPageId = input.facebookPageId
+  }
+  if (input.instagramBusinessAccountId !== undefined) {
+    encrypted.instagramBusinessAccountId = input.instagramBusinessAccountId
+  }
+  if (input.linkedinOrganizationUrn !== undefined) {
+    encrypted.linkedinOrganizationUrn = input.linkedinOrganizationUrn
   }
 
-  if (input.geminiApiKey !== undefined) {
+  if (input.geminiApiKey !== undefined && input.geminiApiKey !== '') {
     encrypted.geminiApiKey = encryptField(input.geminiApiKey)
   }
-  if (input.whatsappAccessToken !== undefined) {
+  if (input.whatsappAccessToken !== undefined && input.whatsappAccessToken !== '') {
     encrypted.whatsappAccessToken = encryptField(input.whatsappAccessToken)
   }
-  if (input.whatsappVerifyToken !== undefined) {
+  if (input.whatsappVerifyToken !== undefined && input.whatsappVerifyToken !== '') {
     encrypted.whatsappVerifyToken = encryptField(input.whatsappVerifyToken)
   }
-  if (input.facebookPageAccessToken !== undefined) {
+  if (input.facebookPageAccessToken !== undefined && input.facebookPageAccessToken !== '') {
     encrypted.facebookPageAccessToken = encryptField(input.facebookPageAccessToken)
   }
-  if (input.linkedinAccessToken !== undefined) {
+  if (input.linkedinAccessToken !== undefined && input.linkedinAccessToken !== '') {
     encrypted.linkedinAccessToken = encryptField(input.linkedinAccessToken)
+  }
+
+  if (Object.keys(encrypted).length === 0) {
+    const existing = await UserCredentials.findOne({ userId: new Types.ObjectId(userId) })
+    if (!existing) {
+      throw new Error('No credential fields to update')
+    }
+    return existing
   }
 
   return UserCredentials.findOneAndUpdate(
     { userId: new Types.ObjectId(userId) },
     { $set: encrypted },
-    { upsert: true, new: true },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
   )
+}
+
+export function credentialsToAdminForm(creds: IUserCredentials | null): CredentialsInput | null {
+  if (!creds) return null
+  return {
+    geminiApiKey: decryptField(creds.geminiApiKey) ?? '',
+    whatsappAccessToken: decryptField(creds.whatsappAccessToken) ?? '',
+    whatsappPhoneNumberId: creds.whatsappPhoneNumberId ?? '',
+    whatsappVerifyToken: decryptField(creds.whatsappVerifyToken) ?? '',
+    publicBaseUrl: creds.publicBaseUrl ?? '',
+    postingDryRun: creds.postingDryRun,
+    facebookPageId: creds.facebookPageId ?? '',
+    facebookPageAccessToken: decryptField(creds.facebookPageAccessToken) ?? '',
+    instagramBusinessAccountId: creds.instagramBusinessAccountId ?? '',
+    linkedinAccessToken: decryptField(creds.linkedinAccessToken) ?? '',
+    linkedinOrganizationUrn: creds.linkedinOrganizationUrn ?? '',
+  }
 }
 
 export function sanitizeCredentials(creds: IUserCredentials | null) {

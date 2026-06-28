@@ -174,6 +174,7 @@ export async function fetchAdminUser(id: string) {
   return apiFetch<{
     user: AdminUserListItem
     credentials: SanitizedCredentials | null
+    credentialsForm: CredentialsForm | null
     allowedNumbers: string[]
     stats: Record<string, number>
     recentRuns: WorkflowRun[]
@@ -192,7 +193,7 @@ export async function createAdminUser(payload: {
   })
 }
 
-export async function approveUser(id: string, credentials?: CredentialsForm) {
+export async function approveUser(id: string, credentials?: Partial<CredentialsForm>) {
   return apiFetch(`/api/admin/users/${id}/approve`, {
     method: 'POST',
     body: JSON.stringify({ credentials }),
@@ -206,11 +207,14 @@ export async function updateUserStatus(id: string, status: 'active' | 'rejected'
   })
 }
 
-export async function updateUserCredentials(id: string, credentials: CredentialsForm) {
-  return apiFetch<{ credentials: SanitizedCredentials }>(`/api/admin/users/${id}/credentials`, {
-    method: 'PUT',
-    body: JSON.stringify(credentials),
-  })
+export async function updateUserCredentials(id: string, credentials: Partial<CredentialsForm>) {
+  return apiFetch<{ credentials: SanitizedCredentials; credentialsForm: CredentialsForm | null }>(
+    `/api/admin/users/${id}/credentials`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(credentials),
+    },
+  )
 }
 
 export async function fetchWhatsAppNumbers() {
